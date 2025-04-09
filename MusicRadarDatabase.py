@@ -152,18 +152,26 @@ class MusicRadarDB:
             if matches:
                 new_list.append(filename)
 
-        #matches = list(filter(lambda filename: regex.search(filename,re.IGNORECASE),wavefilelist))
-        #for match in matches:
-        #    new_list.append (regex.search(match).group(0))
 
         return new_list
+    
+    # method to download the musicradar database from the internet
 
+
+    # methods to extract features from the musicradar database
+    # audio commons
+    # chroma analysis
+    # pytimbre analysis
+    # common infos (fs, channel count, duration, file format)
+
+    # method to convert to sqlite3 database
+    # methods to use the sqlite3 database
 
 if __name__ == "__main__":
     
     # build path to the musicradar database with os. join
 
-    path = os.path.join(os.path.sep, "media", "bitzer","T7", "musicradar_copy")
+    path = os.path.join(os.path.sep, "media", "bitzer", "T7", "musicradar_copy")
     print(path)
     #path = r"/media/bitzer/T7/musicradar_small/"
     db = MusicRadarDB(path)
