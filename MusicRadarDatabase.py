@@ -37,19 +37,18 @@ class MusicRadarDB:
         """
         file_ending=".wav"
         self.all_wavefilelist = []
-        for root, directories, files in os.walk(self.path_to_data ):
+        for root, directories, files in os.walk(self.path_to_data):
             files = [os.path.join(root, file) for file in sorted(files) if file.endswith(file_ending)]
             self.all_wavefilelist.extend(files)
         
-        
         return self.all_wavefilelist
     
-    def save_dataframe(self, filename:str = "musicradar_df.csv")->None:
+    def save_dataframe(self, filename:str = "musicradar_df.csv") -> None:
         """This function will save the dataframe to a csv file
         """
         self.alldata.to_csv(filename, index=False)
 
-    def load_dataframe(self, filename:str = "musicradar_df.csv")->None:
+    def load_dataframe(self, filename: str = "musicradar_df.csv") -> None:
         """This function will load the dataframe from a csv file
         """
         self.alldata = pd.read_csv(filename)
@@ -142,7 +141,7 @@ class MusicRadarDB:
         # create a new list with the filenames that contain the pattern
         new_list = []
 
-        regex = re.compile(pattern,re.IGNORECASE)
+        regex = re.compile(pattern, re.IGNORECASE)
         #search after all matches in all filenames
 
         for filename in wavefilelist:
@@ -179,11 +178,16 @@ class MusicRadarDB:
 
         max_freq = 8000
         nr_of_bands = int(40)
-        blocklength_ms = 50
+        blocklength_ms = 40
         overlap_percent = 50
 
         for file in wavefilelist:
             data, fs = sf.read(file)
+            blocklen_samples = int(fs * blocklength_ms / 1000)
+            if blocklen_samples % 2 != 0:
+                blocklen_samples += 1
+            nfft = int(2 ** np.ceil(np.log2(blocklen_samples)))
+
             # convert to mono if stereo
             if len(data.shape) > 1:
                 data = np.mean(data, axis=1)
@@ -192,22 +196,18 @@ class MusicRadarDB:
                 print(f"File {file} is empty")
                 continue
             # check if the data is too short
-            if data.size < fs * blocklength_ms / 1000:
+            if data.size < nfft:
                 print(f"File {file} is too short")
                 continue
 
 
-            blocklen_samples = int(fs * blocklength_ms / 1000)
             # check if even number and change to even number if not
-            if blocklen_samples % 2 != 0:
-                blocklen_samples += 1
-            nfft = int(2 ** np.ceil(np.log2(blocklen_samples)))
             overlap_samples = int(blocklen_samples * overlap_percent / 100)
             window = np.hanning(blocklen_samples)
             hop_samples = int(blocklen_samples - overlap_samples)
             # compute the mel spectrtogram by using librosa
             S = librosa.feature.melspectrogram(y=data, sr=fs, n_fft=nfft, n_mels=nr_of_bands,
-                                            fmax=max_freq, hop_length=hop_samples)
+                                            win_length=blocklen_samples, fmax=max_freq, hop_length=hop_samples)
             # convert to dB
             S_db = librosa.power_to_db(S, ref=np.max)
             # convert to a numpy array
@@ -280,10 +280,10 @@ if __name__ == "__main__":
     df = pd.read_csv("kickdrums.csv")
 
     # use the first 10 files and comute the thumbnails
-    df = df.head(10)
+    # df = df.head(10)
     # convert to list
     kickdrums = df["Filename"].tolist()
     # compute the thumbnails
     db.compute_thumbnails(kickdrums)
 
-    file_name = '/media/bitzer/T7/musicradar_copy/musicradar-amped-samples/Duke Kit 1 Dub 60bpm C/Dub Drums/dub drums loops/dub drums loop001kick_only001.wav'
+    # file_name = '/media/bitzer/T7/musicradar_copy/musicradar-amped-samples/Duke Kit 1 Dub 60bpm C/Dub Drums/dub drums loops/dub drums loop001kick_only001.wav'
