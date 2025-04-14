@@ -7,7 +7,10 @@ import soundfile as sf
 import pandas as pd
 import re
 
+import acousticmeasures as amt
+
 import sqlite3
+import librosa 
 
 # define a class to access the musicradar database
 class MusicRadarDB:
@@ -73,7 +76,7 @@ class MusicRadarDB:
         return valid_wavefilelist
     
     # check for each wave file in the wavefilelist, if the corresponding json file in audiocommons folder, in chroma_analysis and pt_analysis exists
-    def check_ifmetadata_exists(self, wavefilelist = [])->list:
+    def check_ifmetadata_exists(self, wavefilelist=[])->list:
         """This function will check if the metadata files exist for each wave file in the wavefilelist
         """
         metadata_files = []
@@ -147,18 +150,20 @@ class MusicRadarDB:
                 if not self.alldata.loc[self.alldata["Filename"] == filename, "Has_Metadata"].values[0]:
                     continue
 
-
             matches = regex.search(filename)
             if matches:
                 new_list.append(filename)
-
 
         return new_list
     
     # method to download the musicradar database from the internet
 
 
-    # methods to extract features from the musicradar database
+    # methods to handle features from the musicradar database
+    # add fetures to the database
+    # query database by using fetures
+    
+    # methods to extract features from audio files
     # audio commons
     # chroma analysis
     # pytimbre analysis
@@ -166,6 +171,73 @@ class MusicRadarDB:
 
     # method to convert to sqlite3 database
     # methods to use the sqlite3 database
+
+    # method to compute thumbnails (pictures) from the audio files
+    def compute_thumbnails(self, wavefilelist=[]):
+        if wavefilelist == []:
+            wavefilelist = self.alldata["Filename"]
+
+        max_freq = 8000
+        nr_of_bands = int(40)
+        blocklength_ms = 50
+        overlap_percent = 50
+
+        for file in wavefilelist:
+            data, fs = sf.read(file)
+            # convert to mono if stereo
+            if len(data.shape) > 1:
+                data = np.mean(data, axis=1)
+            # check if the data is empty
+            if data.size == 0:
+                print(f"File {file} is empty")
+                continue
+            # check if the data is too short
+            if data.size < fs * blocklength_ms / 1000:
+                print(f"File {file} is too short")
+                continue
+
+
+            blocklen_samples = int(fs * blocklength_ms / 1000)
+            # check if even number and change to even number if not
+            if blocklen_samples % 2 != 0:
+                blocklen_samples += 1
+            nfft = int(2 ** np.ceil(np.log2(blocklen_samples)))
+            overlap_samples = int(blocklen_samples * overlap_percent / 100)
+            window = np.hanning(blocklen_samples)
+            hop_samples = int(blocklen_samples - overlap_samples)
+            # compute the mel spectrtogram by using librosa
+            S = librosa.feature.melspectrogram(y=data, sr=fs, n_fft=nfft, n_mels=nr_of_bands,
+                                            fmax=max_freq, hop_length=hop_samples)
+            # convert to dB
+            S_db = librosa.power_to_db(S, ref=np.max)
+            # convert to a numpy array
+            S_db = np.array(S_db)
+        
+            # convert to image min_val = -80, max_val = 0
+            min_val = -80
+            max_val = 0
+            thumbnail = (S_db - min_val) / (max_val - min_val)
+            # convert to 0-1 range
+            thumbnail = thumbnail * 255
+            thumbnail = thumbnail.astype(np.uint8)
+            # use colormap viridis to convert to RGB
+            # convert to RGB
+            # thumbnail = np.stack((thumbnail,) * 3, axis=-1)
+            cm = plt.get_cmap('viridis')
+            thumbnail = cm(thumbnail)
+            # save the thumbnail
+            plt.imshow(thumbnail)
+            # add new sub-directory thumbnails
+            path_to_file = os.path.dirname(file)
+            path_to_file = os.path.join(path_to_file, "thumbnails")
+            if not os.path.exists(path_to_file):
+                os.makedirs(path_to_file)
+            
+            plt.savefig(os.path.join(path_to_file, os.path.basename(file).replace(".wav", ".png")))
+           
+            plt.close()
+
+
 
 if __name__ == "__main__":
     
@@ -190,6 +262,7 @@ if __name__ == "__main__":
 
     # pattern = r"(BD)|(kicks)|[^\w]bd[^\w]|_bd_|kick|bass drum|bassdrum|bass-drum|kickdrum"
     # pattern =r"(SD)|(snare)|(rim)"
+    '''
     pattern =r"(HH)|(Hat)|(hihat)"
     db.set_metadata_is_necessary(True)
     kickdrums = db.find_patterns_in_filnames(pattern)
@@ -200,3 +273,17 @@ if __name__ == "__main__":
     df.to_csv("highhat.csv", index=False)
 
     #print(all_files)
+    '''
+
+    # load kickdrumslist csv file
+
+    df = pd.read_csv("kickdrums.csv")
+
+    # use the first 10 files and comute the thumbnails
+    df = df.head(10)
+    # convert to list
+    kickdrums = df["Filename"].tolist()
+    # compute the thumbnails
+    db.compute_thumbnails(kickdrums)
+
+    file_name = '/media/bitzer/T7/musicradar_copy/musicradar-amped-samples/Duke Kit 1 Dub 60bpm C/Dub Drums/dub drums loops/dub drums loop001kick_only001.wav'
