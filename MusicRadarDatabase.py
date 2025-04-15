@@ -58,10 +58,17 @@ class MusicRadarDB:
         """This function will validate the wavefilelist and remove all files that are not valid
         """
         valid_wavefilelist = []
+        fs = []
+        channels = []
+        duration = []
+
         for file in wavefilelist:
             if os.path.isfile(file):
                 try:
-                    sf.info(file)
+                    info = sf.info(file)
+                    fs.append(info.samplerate)
+                    channels.append(info.channels)
+                    duration.append(info.duration)
                 except RuntimeError as e:
                     print(f"File {file} is not a valid wave file: {e}")
                     continue
@@ -71,6 +78,9 @@ class MusicRadarDB:
         if update_internal_list:
             self.all_wavefilelist = valid_wavefilelist
             self.alldata = pd.DataFrame(self.all_wavefilelist, columns=["Filename"])
+            self.alldata["Duration"] = duration
+            self.alldata["Samplerate"] = fs
+            self.alldata["Channels"] = channels
 
         return valid_wavefilelist
     
@@ -247,12 +257,12 @@ if __name__ == "__main__":
     print(path)
     #path = r"/media/bitzer/T7/musicradar_small/"
     db = MusicRadarDB(path)
-    compute_again = False 
+    compute_again = True 
 
     if compute_again:
         all_files = db.get_filepaths()
         all_files = db.validate_wavefilelist(all_files)
-        #all_files = db.check_ifmetadata_exists(all_files)
+        
         all_files = db.check_ifmetadata_exists()
         # save the dataframe to a csv file
         db.save_dataframe("musicradar_df.csv")
@@ -277,7 +287,7 @@ if __name__ == "__main__":
 
     # load kickdrumslist csv file
 
-    df = pd.read_csv("kickdrums.csv")
+    df = pd.read_csv("snaredrums.csv")
 
     # use the first 10 files and comute the thumbnails
     # df = df.head(10)
